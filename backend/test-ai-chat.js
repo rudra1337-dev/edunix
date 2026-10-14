@@ -354,7 +354,12 @@ const runAllTests = async () => {
     assert(false, `Offline mode check failed: ${err.message}`);
   }
 
-  // Test 4.4: POST /api/chat/message in online mode without API key
+  // Check current online availability from the status test above
+  const statusRes = await fetch(`${BASE_URL}/chat/status`);
+  const statusData = (await statusRes.json())?.data;
+  const isOnlineConfigured = statusData?.online?.available;
+
+  // Test 4.4: POST /api/chat/message in online mode
   try {
     const res = await fetch(`${BASE_URL}/chat/message`, {
       method: 'POST',
@@ -365,17 +370,27 @@ const runAllTests = async () => {
       }),
     });
     const json = await res.json();
-    assert(
-      res.status >= 400 &&
-        json.success === false &&
-        json.message.includes('Online AI is not configured'),
-      'POST /api/chat/message (online mode) returns clear configuration instructions without falling back'
-    );
+    if (isOnlineConfigured) {
+      assert(
+        res.status === 200 &&
+          json.success === true &&
+          json.data?.engine === 'online' &&
+          typeof json.data?.content === 'string',
+        'POST /api/chat/message (online mode) returns successful cloud AI response'
+      );
+    } else {
+      assert(
+        res.status >= 400 &&
+          json.success === false &&
+          json.message.includes('Online AI is not configured'),
+        'POST /api/chat/message (online mode) returns clear configuration instructions without falling back'
+      );
+    }
   } catch (err) {
     assert(false, `Online mode check failed: ${err.message}`);
   }
 
-  // Test 4.5: POST /api/chat/message in auto mode (online fails -> auto fallback to local Ollama)
+  // Test 4.5: POST /api/chat/message in auto mode
   try {
     const res = await fetch(`${BASE_URL}/chat/message`, {
       method: 'POST',
@@ -386,14 +401,23 @@ const runAllTests = async () => {
       }),
     });
     const json = await res.json();
-    assert(
-      res.status === 200 &&
-        json.success === true &&
-        json.data?.engine === 'ollama' &&
-        json.data?.fallback === true &&
-        typeof json.data?.fallbackNotice === 'string',
-      'POST /api/chat/message (auto mode) gracefully falls back to local Ollama and returns fallbackNotice'
-    );
+    if (isOnlineConfigured) {
+      assert(
+        res.status === 200 &&
+          json.success === true &&
+          (json.data?.engine === 'online' || json.data?.engine === 'ollama'),
+        'POST /api/chat/message (auto mode) produces successful response from online or local engine'
+      );
+    } else {
+      assert(
+        res.status === 200 &&
+          json.success === true &&
+          json.data?.engine === 'ollama' &&
+          json.data?.fallback === true &&
+          typeof json.data?.fallbackNotice === 'string',
+        'POST /api/chat/message (auto mode) gracefully falls back to local Ollama and returns fallbackNotice'
+      );
+    }
   } catch (err) {
     assert(false, `Auto mode check failed: ${err.message}`);
   }

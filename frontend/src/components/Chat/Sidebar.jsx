@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import './Sidebar.css';
 
 export const Sidebar = ({
@@ -159,6 +160,10 @@ export const Sidebar = ({
         </div>
 
         <div className="sidebar-footer">
+          <Link to="/dashboard" className="sidebar-home-link" title="Return to Dashboard">
+            <span>🏠</span>
+            <span>Dashboard & Platform</span>
+          </Link>
           <div className="sidebar-info">
             <span className="sidebar-mode-note">Online & Offline Hybrid AI</span>
           </div>

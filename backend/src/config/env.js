@@ -1,3 +1,4 @@
+// Central environment-variable access — never hard-code secrets
 export const PORT           = process.env.PORT           || 5000;
 export const MONGO_URI      = process.env.MONGO_URI;
 export const JWT_SECRET     = process.env.JWT_SECRET;
@@ -12,4 +13,3 @@ export const ONLINE_AI_URL      = process.env.ONLINE_AI_URL      || '';
 export const ONLINE_AI_API_KEY  = process.env.ONLINE_AI_API_KEY  || process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY || '';
 export const ONLINE_AI_PROVIDER = process.env.ONLINE_AI_PROVIDER || 'gemini';
 export const ONLINE_AI_MODEL    = process.env.ONLINE_AI_MODEL    || 'gemini-1.5-flash';
-

@@ -1,10 +1,11 @@
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const BASE_URL =
+  import.meta.env.VITE_API_BASE_URL ||
+  import.meta.env.VITE_API_URL ||
+  'http://localhost:5000/api';
 
 const getHeaders = () => {
-  const user = JSON.parse(localStorage.getItem('user') || 'null');
   return {
     'Content-Type': 'application/json',
-    ...(user?.token ? { Authorization: `Bearer ${user.token}` } : {}),
   };
 };
 
