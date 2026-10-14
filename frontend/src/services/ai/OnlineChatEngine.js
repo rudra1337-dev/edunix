@@ -1,5 +1,5 @@
-import { LearningChatEngine } from './ChatEngineInterface';
-import { apiPost, apiGet } from '../api';
+import { LearningChatEngine } from './ChatEngineInterface.js';
+import { apiPost, apiGet } from '../api.js';
 
 export class OnlineChatEngine extends LearningChatEngine {
   constructor() {

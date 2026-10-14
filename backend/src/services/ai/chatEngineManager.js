@@ -33,7 +33,7 @@ export class ChatEngineManager {
   /**
    * Sanitize and limit context messages to prevent token blowout
    */
-  _prepareMessages(messages) {
+  _prepareMessages(messages, systemPrompt = null) {
     if (!Array.isArray(messages) || messages.length === 0) {
       throw new Error('Messages must be a non-empty array.');
     }
@@ -41,7 +41,7 @@ export class ChatEngineManager {
     const sanitized = messages
       .filter((m) => m && typeof m.content === 'string' && m.content.trim().length > 0)
       .map((m) => ({
-        role: m.role === 'assistant' ? 'assistant' : 'user',
+        role: m.role === 'assistant' ? 'assistant' : m.role === 'system' ? 'system' : 'user',
         content: m.content.trim(),
       }));
 
@@ -50,15 +50,23 @@ export class ChatEngineManager {
     }
 
     // Keep the most recent messages up to maxContextMessages
-    return sanitized.slice(-this.maxContextMessages);
+    const bounded = sanitized.slice(-this.maxContextMessages);
+
+    // If systemPrompt provided and not already present, prepend system instruction
+    if (systemPrompt && typeof systemPrompt === 'string' && systemPrompt.trim()) {
+      return [{ role: 'system', content: systemPrompt.trim() }, ...bounded];
+    }
+
+    return bounded;
   }
 
   /**
    * Execute chat according to mode: 'auto' | 'online' | 'offline'
    */
-  async executeChat({ messages, mode = 'auto', conversationId }) {
+  async executeChat({ messages, mode = 'auto', conversationId, context = null, systemPrompt = null }) {
     const validMode = ['auto', 'online', 'offline'].includes(mode) ? mode : 'auto';
-    const preparedMessages = this._prepareMessages(messages);
+    const effectiveSystemPrompt = systemPrompt || (typeof context === 'string' ? context : null);
+    const preparedMessages = this._prepareMessages(messages, effectiveSystemPrompt);
 
     // 1. Explicit ONLINE Mode
     if (validMode === 'online') {

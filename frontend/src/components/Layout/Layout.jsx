@@ -1,10 +1,13 @@
-import { NavLink, useNavigate, Link } from 'react-router-dom';
+import { NavLink, useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import './Layout.css';
 
 const Layout = ({ children }) => {
   const { user, isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const isChat = location.pathname === '/chat' || location.pathname === '/tutor';
 
   const handleLogout = async () => {
     await logout();
@@ -12,7 +15,7 @@ const Layout = ({ children }) => {
   };
 
   return (
-    <div className="layout">
+    <div className={`layout ${isChat ? 'layout--chat' : ''}`}>
       <header className="layout__header">
         <div className="layout__header-inner">
           <Link to={isAuthenticated ? '/dashboard' : '/'} className="layout__brand">
@@ -140,11 +143,13 @@ const Layout = ({ children }) => {
         </div>
       </header>
 
-      <main className="layout__main">{children}</main>
+      <main className={`layout__main ${isChat ? 'layout__main--chat' : ''}`}>{children}</main>
 
-      <footer className="layout__footer">
-        <p>© 2026 Edunix. Online & Offline AI Learning Platform.</p>
-      </footer>
+      {!isChat && (
+        <footer className="layout__footer">
+          <p>© 2026 Edunix. Online & Offline AI Learning Platform.</p>
+        </footer>
+      )}
     </div>
   );
 };

@@ -1,6 +1,7 @@
-import onlineChatEngine from './OnlineChatEngine';
-import ollamaChatEngine from './OllamaChatEngine';
-import { apiPost, apiGet } from '../api';
+import onlineChatEngine from './OnlineChatEngine.js';
+import ollamaChatEngine from './OllamaChatEngine.js';
+import contextRetrievalService from './contextRetrievalService.js';
+import { apiPost, apiGet } from '../api.js';
 
 const STORAGE_KEY = 'edunix_ai_mode';
 
@@ -55,33 +56,112 @@ export class ChatEngineManager {
   }
 
   /**
-   * Send messages through the manager
+   * Send messages through the manager with local context injection
    */
   async sendMessage(messages, options = {}) {
-    const { conversationId } = options;
+    const { conversationId, userId = 'local-user' } = options;
+
+    // 1. Retrieve local context from IndexedDB
+    let systemPrompt = '';
+    try {
+      const contextPackage = await contextRetrievalService.assembleContext({
+        userId,
+        conversationId,
+        currentMessages: messages,
+      });
+      systemPrompt = contextRetrievalService.buildSystemPrompt(contextPackage);
+    } catch (ctxErr) {
+      console.warn('[ChatEngineManager] Context assembly warning:', ctxErr.message);
+    }
+
+    const sanitizedMessages = messages.map((m) => ({
+      role: m.role,
+      content: m.content,
+    }));
 
     const payload = {
-      messages: messages.map((m) => ({
-        role: m.role,
-        content: m.content,
-      })),
+      messages: sanitizedMessages,
       mode: this.activeMode,
       conversationId,
+      systemPrompt,
     };
 
-    const res = await apiPost('/chat/message', payload);
-    const data = res?.data;
+    try {
+      const res = await apiPost('/chat/message', payload);
+      const data = res?.data;
 
+      return {
+        id: `msg-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+        conversationId,
+        role: 'assistant',
+        content: data.content,
+        engine: data.engine,
+        model: data.model,
+        fallback: Boolean(data.fallback),
+        fallbackNotice: data.fallbackNotice || null,
+        mode: data.mode,
+        createdAt: new Date().toISOString(),
+      };
+    } catch (backendError) {
+      console.warn(
+        '[ChatEngineManager] Backend API unreachable. Attempting direct local Ollama inference...',
+        backendError.message
+      );
+
+      // If in online mode, do not silently fallback to Ollama per strict isolation rule
+      if (this.activeMode === 'online') {
+        throw backendError;
+      }
+
+      // Offline or Auto mode: attempt direct local Ollama execution
+      try {
+        return await this._callLocalOllamaDirectly(sanitizedMessages, systemPrompt, conversationId);
+      } catch (ollamaErr) {
+        throw new Error(
+          `Unable to generate AI response. Backend: ${backendError.message} | Local Ollama: ${ollamaErr.message}`
+        );
+      }
+    }
+  }
+
+  /**
+   * Direct browser-to-Ollama inference when backend server is completely offline
+   */
+  async _callLocalOllamaDirectly(messages, systemPrompt, conversationId) {
+    const payloadMessages = [];
+    if (systemPrompt) {
+      payloadMessages.push({ role: 'system', content: systemPrompt });
+    }
+    payloadMessages.push(...messages);
+
+    const res = await fetch('http://localhost:11434/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'llama3.2:1b',
+        messages: payloadMessages.map((m) => ({
+          role: m.role,
+          content: m.content,
+        })),
+        stream: false,
+      }),
+    });
+
+    if (!res.ok) {
+      throw new Error(`Local Ollama service HTTP ${res.status}`);
+    }
+
+    const data = await res.json();
     return {
       id: `msg-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       conversationId,
       role: 'assistant',
-      content: data.content,
-      engine: data.engine,
-      model: data.model,
-      fallback: Boolean(data.fallback),
-      fallbackNotice: data.fallbackNotice || null,
-      mode: data.mode,
+      content: data.message?.content?.trim() || '',
+      engine: 'ollama',
+      model: 'llama3.2:1b',
+      fallback: true,
+      fallbackNotice: 'Offline mode: generated directly via local Ollama.',
+      mode: 'offline',
       createdAt: new Date().toISOString(),
     };
   }
