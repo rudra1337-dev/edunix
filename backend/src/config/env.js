@@ -13,3 +13,4 @@ export const ONLINE_AI_URL      = process.env.ONLINE_AI_URL      || '';
 export const ONLINE_AI_API_KEY  = process.env.ONLINE_AI_API_KEY  || process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY || '';
 export const ONLINE_AI_PROVIDER = process.env.ONLINE_AI_PROVIDER || 'gemini';
 export const ONLINE_AI_MODEL    = process.env.ONLINE_AI_MODEL    || 'gemini-1.5-flash';
+export const N8N_LEARNING_AGENT_URL = process.env.N8N_LEARNING_AGENT_URL || 'https://anshuman45.app.n8n.cloud/webhook/learning-agent';

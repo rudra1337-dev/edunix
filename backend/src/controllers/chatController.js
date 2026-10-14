@@ -7,7 +7,15 @@ import chatEngineManager from '../services/ai/chatEngineManager.js';
  * @access  Public / Authenticated
  */
 export const sendMessage = asyncHandler(async (req, res) => {
-  const { messages, mode, conversationId, context, systemPrompt } = req.body;
+  const {
+    messages,
+    mode,
+    conversationId,
+    context,
+    systemPrompt,
+    learnerContext,
+    responsePreferences,
+  } = req.body;
 
   if (!messages || !Array.isArray(messages) || messages.length === 0) {
     return res.status(400).json({
@@ -20,8 +28,11 @@ export const sendMessage = asyncHandler(async (req, res) => {
     messages,
     mode: mode || 'auto',
     conversationId,
+    userId: req.user?._id?.toString() || req.user?.id || req.body.userId || 'local-user',
     context,
     systemPrompt,
+    learnerContext,
+    responsePreferences,
   });
 
   res.status(200).json({

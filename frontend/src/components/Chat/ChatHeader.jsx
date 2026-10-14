@@ -10,47 +10,104 @@ export const ChatHeader = ({
   syncState,
   onTriggerSync,
 }) => {
+  const normalizedMode =
+    mode === 'agentic' || mode === 'n8n'
+      ? 'agentic'
+      : mode === 'offline'
+      ? 'local'
+      : mode === 'online'
+      ? 'gemini'
+      : mode || 'auto';
+
   const getStatusBadge = () => {
-    if (mode === 'online') {
-      return status?.online?.available ? (
-        <span className="status-indicator status-indicator--online" title={status.online.message}>
-          ● Online Ready
+    // 1. Dedicated Agentic AI Mode (Testing & direct execution)
+    if (normalizedMode === 'agentic') {
+      const isAvailable = status?.agentic?.available || status?.n8n?.available;
+      return isAvailable ? (
+        <span
+          className="status-indicator status-indicator--online"
+          title={status?.agentic?.message || status?.n8n?.message || 'Dedicated n8n Agentic AI ready'}
+        >
+          ● Agentic AI Ready
         </span>
       ) : (
-        <span className="status-indicator status-indicator--warning" title={status?.online?.message}>
-          ▲ Online Unconfigured
+        <span
+          className="status-indicator status-indicator--warning"
+          title={status?.agentic?.message || status?.n8n?.message || 'Dedicated Agentic AI webhook unreachable'}
+        >
+          ▲ Agentic AI Offline
         </span>
       );
     }
 
-    if (mode === 'offline') {
-      return status?.offline?.available ? (
-        <span className="status-indicator status-indicator--online" title={status.offline.message}>
+    // 2. Gemini Mode
+    if (normalizedMode === 'gemini') {
+      const isAvailable = status?.gemini?.available || status?.online?.available;
+      return isAvailable ? (
+        <span
+          className="status-indicator status-indicator--online"
+          title={status?.gemini?.message || status?.online?.message || 'Gemini AI configured and ready'}
+        >
+          ● Gemini Ready
+        </span>
+      ) : (
+        <span
+          className="status-indicator status-indicator--warning"
+          title={status?.gemini?.message || status?.online?.message || 'Gemini API key unconfigured'}
+        >
+          ▲ Gemini Unconfigured
+        </span>
+      );
+    }
+
+    // 3. Local / Ollama Mode
+    if (normalizedMode === 'local') {
+      const isAvailable = status?.ollama?.available || status?.offline?.available;
+      return isAvailable ? (
+        <span
+          className="status-indicator status-indicator--online"
+          title={status?.ollama?.message || status?.offline?.message || 'Local Ollama ready'}
+        >
           ● Ollama Ready
         </span>
       ) : (
-        <span className="status-indicator status-indicator--offline" title={status?.offline?.message}>
+        <span
+          className="status-indicator status-indicator--offline"
+          title={status?.ollama?.message || status?.offline?.message || 'Local Ollama not detected'}
+        >
           ○ Ollama Offline
         </span>
       );
     }
 
-    // Auto Mode
-    if (status?.online?.available) {
+    // 4. Auto Mode (n8n Agentic AI primary + local Ollama fallback)
+    const isN8nReady = status?.agentic?.available || status?.n8n?.available;
+    const isLocalReady = status?.ollama?.available || status?.offline?.available;
+
+    if (isN8nReady) {
       return (
-        <span className="status-indicator status-indicator--online" title="Online primary ready">
-          ● Auto (Online Ready)
+        <span
+          className="status-indicator status-indicator--online"
+          title={status?.n8n?.message || 'n8n Agentic AI primary ready'}
+        >
+          ● Auto (Agentic AI)
         </span>
       );
-    } else if (status?.offline?.available) {
+    } else if (isLocalReady) {
       return (
-        <span className="status-indicator status-indicator--fallback" title="Online unavailable, local fallback ready">
+        <span
+          className="status-indicator status-indicator--fallback"
+          title="n8n webhook unavailable, local Ollama fallback ready"
+        >
           ⚡ Auto (Local Fallback Ready)
         </span>
       );
     } else {
       return (
-        <span className="status-indicator status-indicator--warning" title="Neither service currently detected">
+        <span
+          className="status-indicator status-indicator--warning"
+          title="Checking AI services availability..."
+        >
           ▲ Services Checking
         </span>
       );
@@ -113,19 +170,20 @@ export const ChatHeader = ({
         {/* Manual Mode Selector */}
         <div className="mode-selector-wrapper">
           <label htmlFor="ai-mode-select" className="sr-only">
-            Select AI Mode
+            Select AI Provider Mode
           </label>
           <select
             id="ai-mode-select"
-            value={mode}
+            value={normalizedMode}
             disabled={isGenerating}
             onChange={(e) => onModeChange(e.target.value)}
-            className={`mode-select mode-select--${mode}`}
-            title="Manual AI Mode Selector"
+            className={`mode-select mode-select--${normalizedMode}`}
+            title="Unified AI Provider Mode"
           >
-            <option value="auto">⚡ Auto (Fallback)</option>
-            <option value="online">🌐 Online AI</option>
-            <option value="offline">💻 Local AI (Ollama)</option>
+            <option value="auto">⚡ Auto (Agentic + Fallback)</option>
+            <option value="agentic">🤖 Agentic AI (Dedicated)</option>
+            <option value="local">💻 Local — Offline AI</option>
+            <option value="gemini">🌐 Gemini AI</option>
           </select>
         </div>
       </div>
