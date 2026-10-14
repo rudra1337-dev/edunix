@@ -873,6 +873,23 @@ export class LearningPlanService {
       payload: updated,
     });
 
+    // Record learning event for subtask checklist item
+    const targetTopic = (plan.items || []).find((i) => i.id === topicId);
+    await this.eventRepo.recordEvent({
+      eventId: generateEvtId(),
+      userId,
+      learningPlanId: plan.id,
+      learningPlanItemId: topicId,
+      type: completed ? 'checklist_item_completed' : 'checklist_item_reopened',
+      topic: targetTopic?.title || 'Checklist Subtask',
+      payload: {
+        topicId,
+        checkId: targetCheckId,
+        completed: Boolean(completed),
+        timestamp: new Date().toISOString(),
+      },
+    });
+
     return updated;
   }
 
