@@ -26,6 +26,10 @@ export const errorHandler = (err, req, res, next) => {
   res.status(statusCode).json({
     success: false,
     message,
+    ...(err.engine !== undefined && { engine: err.engine }),
+    ...(err.isAvailabilityError !== undefined && { isAvailabilityError: err.isAvailabilityError }),
+    ...(err.onlineError !== undefined && { onlineError: err.onlineError }),
+    ...(err.offlineError !== undefined && { offlineError: err.offlineError }),
     stack: process.env.NODE_ENV === 'production' ? undefined : err.stack,
   });
 };

@@ -1,4 +1,4 @@
-/* Global Reset & Base */
+/* Global Reset & Design Tokens */
 :root {
   --bg-primary: #0a0b10;
   --bg-secondary: #12141e;
@@ -47,6 +47,25 @@ a {
 button {
   font-family: inherit;
   cursor: pointer;
+}
+
+/* Custom Scrollbar for Chat & App */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #23283c;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #374161;
 }
 
 /* Fullscreen Auth / Session Loading Screen */

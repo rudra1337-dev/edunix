@@ -106,7 +106,7 @@ const Signup = () => {
           <div className="auth-card__logo-badge">
             <span>🎓</span>
           </div>
-          <h1 className="auth-card__title">Join SikshaSetu</h1>
+          <h1 className="auth-card__title">Join Edunix</h1>
           <p className="auth-card__subtitle">
             Create your student account to begin personalized learning
           </p>

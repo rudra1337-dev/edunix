@@ -16,9 +16,9 @@ const Layout = ({ children }) => {
       <header className="layout__header">
         <div className="layout__header-inner">
           <Link to={isAuthenticated ? '/dashboard' : '/'} className="layout__brand">
-            <span className="layout__brand-icon">📚</span>
+            <span className="layout__brand-icon">⚡</span>
             <div className="layout__brand-text">
-              <span className="layout__logo">SikshaSetu</span>
+              <span className="layout__logo">Edunix</span>
               <span className="layout__tagline">AI-Powered Learning</span>
             </div>
           </Link>
@@ -35,12 +35,12 @@ const Layout = ({ children }) => {
                   Dashboard
                 </NavLink>
                 <NavLink
-                  to="/tutor"
+                  to="/chat"
                   className={({ isActive }) =>
                     `layout__link ${isActive ? 'layout__link--active' : ''}`
                   }
                 >
-                  AI Tutor
+                  AI Chat
                 </NavLink>
                 <NavLink
                   to="/learning-journey"
@@ -86,6 +86,14 @@ const Layout = ({ children }) => {
                   Home
                 </NavLink>
                 <NavLink
+                  to="/chat"
+                  className={({ isActive }) =>
+                    `layout__link ${isActive ? 'layout__link--active' : ''}`
+                  }
+                >
+                  AI Chat
+                </NavLink>
+                <NavLink
                   to="/about"
                   className={({ isActive }) =>
                     `layout__link ${isActive ? 'layout__link--active' : ''}`
@@ -113,7 +121,7 @@ const Layout = ({ children }) => {
                   type="button"
                   onClick={handleLogout}
                   className="layout__logout-btn"
-                  title="Log out of SikshaSetu"
+                  title="Log out of Edunix"
                 >
                   Sign Out
                 </button>
@@ -135,7 +143,7 @@ const Layout = ({ children }) => {
       <main className="layout__main">{children}</main>
 
       <footer className="layout__footer">
-        <p>© 2026 SikshaSetu. AI-Powered Personalized Learning Platform. Foundation Phase.</p>
+        <p>© 2026 Edunix. Online & Offline AI Learning Platform.</p>
       </footer>
     </div>
   );

@@ -79,7 +79,7 @@ const Login = () => {
           </div>
           <h1 className="auth-card__title">Welcome Back</h1>
           <p className="auth-card__subtitle">
-            Sign in to your SikshaSetu personalized learning journey
+            Sign in to your Edunix personalized learning journey
           </p>
         </div>
 

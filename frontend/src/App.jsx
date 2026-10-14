@@ -4,6 +4,9 @@ import Layout from './components/Layout/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
 import PublicOnlyRoute from './components/PublicOnlyRoute';
 
+// AI Chat Interface
+import ChatView from './pages/Chat/ChatView';
+
 // Public Pages
 import Landing from './pages/Landing/Landing';
 import About from './pages/About/About';
@@ -12,7 +15,6 @@ import Signup from './pages/Signup/Signup';
 
 // Protected Student Pages
 import Dashboard from './pages/Dashboard/Dashboard';
-import Tutor from './pages/Tutor/Tutor';
 import LearningJourney from './pages/LearningJourney/LearningJourney';
 import Progress from './pages/Progress/Progress';
 import StudyPlan from './pages/StudyPlan/StudyPlan';
@@ -21,88 +23,92 @@ import Profile from './pages/Profile/Profile';
 function App() {
   return (
     <AuthProvider>
-      <Layout>
-        <Routes>
-          {/* Public Routes */}
-          <Route path="/" element={<Landing />} />
-          <Route path="/about" element={<About />} />
+      <Routes>
+        {/* Fullscreen ChatGPT-style Conversational AI (Both public & authenticated) */}
+        <Route path="/chat" element={<ChatView />} />
+        <Route path="/tutor" element={<ChatView />} />
 
-          {/* Public-only Auth Routes (redirect to /dashboard if logged in) */}
-          <Route
-            path="/sign-in"
-            element={
-              <PublicOnlyRoute>
-                <Login />
-              </PublicOnlyRoute>
-            }
-          />
-          <Route
-            path="/sign-up"
-            element={
-              <PublicOnlyRoute>
-                <Signup />
-              </PublicOnlyRoute>
-            }
-          />
+        {/* Standard Layout Pages */}
+        <Route
+          path="/*"
+          element={
+            <Layout>
+              <Routes>
+                {/* Public Routes */}
+                <Route path="/" element={<Landing />} />
+                <Route path="/about" element={<About />} />
 
-          {/* Route Aliases */}
-          <Route path="/login" element={<Navigate to="/sign-in" replace />} />
-          <Route path="/signup" element={<Navigate to="/sign-up" replace />} />
+                {/* Public-only Auth Routes */}
+                <Route
+                  path="/sign-in"
+                  element={
+                    <PublicOnlyRoute>
+                      <Login />
+                    </PublicOnlyRoute>
+                  }
+                />
+                <Route
+                  path="/sign-up"
+                  element={
+                    <PublicOnlyRoute>
+                      <Signup />
+                    </PublicOnlyRoute>
+                  }
+                />
 
-          {/* Protected Student Routes */}
-          <Route
-            path="/dashboard"
-            element={
-              <ProtectedRoute>
-                <Dashboard />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/tutor"
-            element={
-              <ProtectedRoute>
-                <Tutor />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/learning-journey"
-            element={
-              <ProtectedRoute>
-                <LearningJourney />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/progress"
-            element={
-              <ProtectedRoute>
-                <Progress />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/study-plan"
-            element={
-              <ProtectedRoute>
-                <StudyPlan />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/profile"
-            element={
-              <ProtectedRoute>
-                <Profile />
-              </ProtectedRoute>
-            }
-          />
+                {/* Route Aliases */}
+                <Route path="/login" element={<Navigate to="/sign-in" replace />} />
+                <Route path="/signup" element={<Navigate to="/sign-up" replace />} />
 
-          {/* Fallback to Home */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </Layout>
+                {/* Protected Student Routes */}
+                <Route
+                  path="/dashboard"
+                  element={
+                    <ProtectedRoute>
+                      <Dashboard />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/learning-journey"
+                  element={
+                    <ProtectedRoute>
+                      <LearningJourney />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/progress"
+                  element={
+                    <ProtectedRoute>
+                      <Progress />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/study-plan"
+                  element={
+                    <ProtectedRoute>
+                      <StudyPlan />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/profile"
+                  element={
+                    <ProtectedRoute>
+                      <Profile />
+                    </ProtectedRoute>
+                  }
+                />
+
+                {/* Fallback to Home */}
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            </Layout>
+          }
+        />
+      </Routes>
     </AuthProvider>
   );
 }

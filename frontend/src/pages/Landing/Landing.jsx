@@ -15,27 +15,30 @@ const Landing = () => {
           </div>
 
           <h1 className="hero-title">
-            Bridge the Gap to Knowledge with <span className="gradient-text">SikshaSetu</span>
+            Bridge the Gap to Knowledge with <span className="gradient-text">Edunix</span>
           </h1>
 
           <p className="hero-subtitle">
-            An agentic EdTech platform tailored for every student. Experience personalized
-            conversations, adaptive learning roadmaps, continuous progress tracking, and
-            support in your preferred regional language.
+            An intelligent, hybrid AI learning platform tailored for every student. Experience
+            conversational AI tutoring both online and offline, adaptive learning roadmaps,
+            continuous progress tracking, and regional language support.
           </p>
 
           <div className="hero-cta-group">
+            <Link to="/chat" className="btn btn-primary btn-lg">
+              ⚡ Launch AI Chat
+            </Link>
             {isAuthenticated ? (
-              <Link to="/dashboard" className="btn btn-primary btn-lg">
-                Continue Learning as {user?.name || 'Student'} →
+              <Link to="/dashboard" className="btn btn-secondary btn-lg">
+                Dashboard ({user?.name || 'Student'}) →
               </Link>
             ) : (
               <>
-                <Link to="/sign-up" className="btn btn-primary btn-lg">
+                <Link to="/sign-up" className="btn btn-secondary btn-lg">
                   Get Started Free
                 </Link>
                 <Link to="/sign-in" className="btn btn-secondary btn-lg">
-                  Sign In to Account
+                  Sign In
                 </Link>
               </>
             )}
@@ -47,7 +50,7 @@ const Landing = () => {
         <div className="section-header">
           <h2 className="section-title">Engineered for Deep, Meaningful Learning</h2>
           <p className="section-subtitle">
-            Discover how SikshaSetu combines state-of-the-art AI with student-centered pedagogy.
+            Discover how Edunix combines state-of-the-art AI with student-centered pedagogy.
           </p>
         </div>
 
