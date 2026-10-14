@@ -1,0 +1,43 @@
+import { LearningChatEngine } from './ChatEngineInterface';
+import { apiPost, apiGet } from '../api';
+
+export class OllamaChatEngine extends LearningChatEngine {
+  constructor() {
+    super('ollama');
+    this.abortController = null;
+  }
+
+  async checkAvailability() {
+    try {
+      const res = await apiGet('/chat/status');
+      return res?.data?.offline || { available: false, message: 'Status unavailable' };
+    } catch (err) {
+      return { available: false, message: err.message };
+    }
+  }
+
+  async sendMessage(messages, options = {}) {
+    this.abortController = new AbortController();
+    try {
+      const payload = {
+        messages,
+        mode: 'offline',
+        conversationId: options.conversationId,
+      };
+
+      const res = await apiPost('/chat/message', payload);
+      return res.data;
+    } finally {
+      this.abortController = null;
+    }
+  }
+
+  cancelRequest() {
+    if (this.abortController) {
+      this.abortController.abort();
+      this.abortController = null;
+    }
+  }
+}
+
+export default new OllamaChatEngine();

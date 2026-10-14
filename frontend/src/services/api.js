@@ -9,27 +9,48 @@ const getHeaders = () => {
 };
 
 const handleResponse = async (res) => {
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.message || 'Request failed');
+  let data;
+  try {
+    data = await res.json();
+  } catch {
+    data = { message: res.statusText || 'Request failed' };
+  }
+
+  if (!res.ok) {
+    const error = new Error(data.message || 'Request failed');
+    error.status = res.status;
+    error.data = data;
+    throw error;
+  }
   return data;
 };
 
 export const apiGet = (path) =>
-  fetch(`${BASE_URL}${path}`, { headers: getHeaders() }).then(handleResponse);
+  fetch(`${BASE_URL}${path}`, {
+    method: 'GET',
+    headers: getHeaders(),
+    credentials: 'include',
+  }).then(handleResponse);
 
 export const apiPost = (path, body) =>
   fetch(`${BASE_URL}${path}`, {
     method: 'POST',
     headers: getHeaders(),
-    body: JSON.stringify(body),
+    credentials: 'include',
+    body: body ? JSON.stringify(body) : undefined,
   }).then(handleResponse);
 
 export const apiPut = (path, body) =>
   fetch(`${BASE_URL}${path}`, {
     method: 'PUT',
     headers: getHeaders(),
-    body: JSON.stringify(body),
+    credentials: 'include',
+    body: body ? JSON.stringify(body) : undefined,
   }).then(handleResponse);
 
 export const apiDelete = (path) =>
-  fetch(`${BASE_URL}${path}`, { method: 'DELETE', headers: getHeaders() }).then(handleResponse);
+  fetch(`${BASE_URL}${path}`, {
+    method: 'DELETE',
+    headers: getHeaders(),
+    credentials: 'include',
+  }).then(handleResponse);
