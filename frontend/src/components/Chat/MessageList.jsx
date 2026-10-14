@@ -272,11 +272,17 @@ export const MessageList = ({
                         {isThisSpeaking ? '⏹ Stop Audio' : '🔊 Listen'}
                       </button>
 
-                      {/* Engine Tag */}
-                      {msg.engine && (
-                        <span className="msg-engine-tag">
-                          {msg.engine === 'ollama' ? '💻 Ollama' : '🌐 Online'}
-                          {msg.model ? ` (${msg.model})` : ''}
+                      {/* Engine / Provider Tag */}
+                      {(msg.providerLabel || msg.engine) && (
+                        <span className="msg-engine-tag" title={msg.fallbackNotice || `Generated via ${msg.providerLabel || msg.engine}`}>
+                          {msg.providerLabel
+                            ? (msg.mode === 'agentic' ? `🤖 ${msg.providerLabel}` : msg.engine === 'n8n' ? `⚡ ${msg.providerLabel}` : msg.engine === 'ollama' ? `💻 ${msg.providerLabel}` : `🌐 ${msg.providerLabel}`)
+                            : msg.mode === 'agentic' || msg.engine === 'n8n'
+                            ? '🤖 Dedicated Agentic AI'
+                            : msg.engine === 'ollama'
+                            ? '💻 Local AI (Ollama)'
+                            : '🌐 Gemini AI'}
+                          {msg.model && msg.engine !== 'n8n' ? ` (${msg.model})` : ''}
                         </span>
                       )}
                     </div>

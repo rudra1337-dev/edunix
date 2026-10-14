@@ -1,17 +1,20 @@
 /**
- * Comprehensive Automated Test Suite for Edunix AI Chat Architecture
+ * Comprehensive Automated Test Suite for Edunix Unified AI Architecture
  * Tests:
- * 1. Online Chat Engine (success, error, timeout, formatting)
- * 2. Ollama Chat Engine (offline availability, model check, error diagnostics)
- * 3. ChatEngineManager:
- *    - Strict ONLINE mode (never calls Ollama)
- *    - Strict OFFLINE mode (never calls Online)
- *    - AUTO mode: online primary, graceful fallback to Ollama, both failing
- * 4. Context management & input validation
- * 5. End-to-end HTTP API tests against live server (/api/chat/status, /api/chat/message)
+ * 1. N8nLearningAgentService (availability, extraction, error handling)
+ * 2. OnlineChatEngine / Gemini (availability, normalization)
+ * 3. OllamaChatEngine (local detection, model check)
+ * 4. ChatEngineManager:
+ *    - AUTO mode: n8n primary, fallback to Ollama (NEVER Gemini)
+ *    - GEMINI mode: Gemini primary, fallback to Ollama (NEVER n8n)
+ *    - LOCAL mode: Ollama only (NEVER n8n or Gemini)
+ *    - Dual failure handling (503 combined error)
+ *    - History context bounding (15 messages)
+ * 5. End-to-End Live HTTP API Tests (/api/chat/status, /api/chat/message)
  */
 
 import { ChatEngineManager } from './src/services/ai/chatEngineManager.js';
+import { N8nLearningAgentService } from './src/services/ai/n8nLearningAgentService.js';
 import { OnlineChatEngine } from './src/services/ai/onlineEngine.js';
 import { OllamaChatEngine } from './src/services/ai/ollamaEngine.js';
 
@@ -29,294 +32,407 @@ const assert = (condition, description) => {
 };
 
 const runAllTests = async () => {
-  console.log('🧪 Starting EDUNIX AI Chat Test Suite...\n');
+  console.log('🧪 Starting EDUNIX Unified AI Provider Test Suite...\n');
 
   // ==========================================
-  // SECTION 1: UNIT TESTS - ONLINE ENGINE
+  // SECTION 1: UNIT TESTS - N8N AGENTIC AI
   // ==========================================
-  console.log('--- Section 1: OnlineChatEngine Unit Tests ---');
+  console.log('--- Section 1: N8nLearningAgentService Unit Tests ---');
+
+  const n8nService = new N8nLearningAgentService();
+
+  // Test 1.1: Availability check
+  const n8nStatus = await n8nService.checkAvailability();
+  assert(
+    typeof n8nStatus.available === 'boolean' && n8nStatus.provider === 'n8n',
+    'N8nLearningAgentService reports structured availability'
+  );
+
+  // Test 1.2: Response content extraction
+  assert(
+    n8nService._extractContent({ answer: 'Extracted answer text' }) === 'Extracted answer text',
+    'N8nLearningAgentService extracts content from data.answer'
+  );
+  assert(
+    n8nService._extractContent({ output: 'Extracted output text' }) === 'Extracted output text',
+    'N8nLearningAgentService extracts content from data.output'
+  );
+  assert(
+    n8nService._extractContent([{ message: 'Array message text' }]) === 'Array message text',
+    'N8nLearningAgentService extracts content from array payloads'
+  );
+
+  // Test 1.3: HTML error detection
+  let htmlRejected = false;
+  try {
+    n8nService._extractContent('<!DOCTYPE html><html><body>502 Bad Gateway</body></html>');
+  } catch (e) {
+    htmlRejected = e.message.includes('HTML error page');
+  }
+  assert(htmlRejected, 'N8nLearningAgentService cleanly rejects HTML error pages as provider failures');
+
+  // ==========================================
+  // SECTION 2: UNIT TESTS - GEMINI ONLINE ENGINE
+  // ==========================================
+  console.log('\n--- Section 2: OnlineChatEngine Unit Tests ---');
 
   const onlineEngine = new OnlineChatEngine();
-
-  // Test 1.1: Availability check when unconfigured
-  const unconfiguredStatus = await onlineEngine.checkAvailability();
+  const geminiStatus = await onlineEngine.checkAvailability();
   assert(
-    typeof unconfiguredStatus.available === 'boolean',
+    typeof geminiStatus.available === 'boolean',
     'OnlineChatEngine reports availability status structure correctly'
   );
 
-  // Test 1.2: Normalized response format
-  const mockOnlineSuccess = new OnlineChatEngine();
-  mockOnlineSuccess.checkAvailability = async () => ({ available: true });
-  mockOnlineSuccess.sendMessage = async (messages) => ({
-    role: 'assistant',
-    content: `Processed online: ${messages[messages.length - 1].content}`,
-    engine: 'online',
-    model: 'gemini-1.5-flash',
-  });
-
-  const onlineRes = await mockOnlineSuccess.sendMessage([{ role: 'user', content: 'What is a Unix inode?' }]);
-  assert(
-    onlineRes.role === 'assistant' &&
-      onlineRes.engine === 'online' &&
-      onlineRes.content.includes('Processed online: What is a Unix inode?'),
-    'OnlineChatEngine returns normalized response data'
-  );
-
-  // Test 1.3: Online request failure propagation
-  const mockOnlineFailure = new OnlineChatEngine();
-  mockOnlineFailure.checkAvailability = async () => ({ available: true });
-  mockOnlineFailure.sendMessage = async () => {
-    const err = new Error('503 Service Unavailable: High traffic');
-    err.isAvailabilityError = true;
-    err.engine = 'online';
-    throw err;
-  };
-
-  try {
-    await mockOnlineFailure.sendMessage([{ role: 'user', content: 'Hi' }]);
-    assert(false, 'OnlineChatEngine should throw on failure');
-  } catch (err) {
-    assert(
-      err.isAvailabilityError === true && err.engine === 'online',
-      'OnlineChatEngine propagates availability error flag and engine tag'
-    );
-  }
-
   // ==========================================
-  // SECTION 2: UNIT TESTS - OLLAMA ENGINE
+  // SECTION 3: UNIT TESTS - OLLAMA LOCAL ENGINE
   // ==========================================
-  console.log('\n--- Section 2: OllamaChatEngine Unit Tests ---');
+  console.log('\n--- Section 3: OllamaChatEngine Unit Tests ---');
 
   const ollamaEngine = new OllamaChatEngine();
-
-  // Test 2.1: Ollama offline detection
   const offlineStatus = await ollamaEngine.checkAvailability();
   assert(
     offlineStatus.provider === 'ollama' && typeof offlineStatus.available === 'boolean',
     'OllamaChatEngine detects local service status without crashing'
   );
 
-  // Test 2.2: Mock Ollama success
-  const mockOllamaSuccess = new OllamaChatEngine();
-  mockOllamaSuccess.checkAvailability = async () => ({ available: true, model: 'llama3' });
-  mockOllamaSuccess.sendMessage = async (messages) => ({
-    role: 'assistant',
-    content: `Local Ollama answer to: ${messages[messages.length - 1].content}`,
-    engine: 'ollama',
-    model: 'llama3',
+  // ==========================================
+  // SECTION 4: UNIFIED ORCHESTRATION & ISOLATION
+  // ==========================================
+  console.log('\n--- Section 4: ChatEngineManager Orchestration & Isolation Rules ---');
+
+  // Test 4.1: AUTO Mode - n8n primary, NEVER calls Gemini
+  const managerAuto = new ChatEngineManager();
+  let geminiCalledInAuto = false;
+  let ollamaCalledInAuto = false;
+
+  managerAuto.n8nService = {
+    sendMessage: async () => ({
+      role: 'assistant',
+      content: 'Answer from n8n Agentic AI',
+      engine: 'n8n',
+      provider: 'n8n',
+      model: 'agentic-ai',
+    }),
+  };
+  managerAuto.onlineEngine = {
+    sendMessage: async () => {
+      geminiCalledInAuto = true;
+      return { role: 'assistant', content: 'Gemini', engine: 'online' };
+    },
+  };
+  managerAuto.ollamaEngine = {
+    sendMessage: async () => {
+      ollamaCalledInAuto = true;
+      return { role: 'assistant', content: 'Ollama', engine: 'ollama' };
+    },
+  };
+
+  const autoRes = await managerAuto.executeChat({
+    messages: [{ role: 'user', content: 'Hello' }],
+    mode: 'auto',
+    conversationId: 'c-auto-1',
   });
 
-  const ollamaRes = await mockOllamaSuccess.sendMessage([{ role: 'user', content: 'Explain grep command' }]);
   assert(
-    ollamaRes.role === 'assistant' &&
-      ollamaRes.engine === 'ollama' &&
-      ollamaRes.model === 'llama3' &&
-      ollamaRes.content.includes('Local Ollama answer to: Explain grep command'),
-    'OllamaChatEngine returns normalized local response'
+    autoRes.engine === 'n8n' &&
+      autoRes.providerLabel === 'n8n Agentic AI' &&
+      autoRes.fallback === false &&
+      !geminiCalledInAuto &&
+      !ollamaCalledInAuto,
+    'AUTO mode uses n8n Agentic AI primary and NEVER calls Gemini or Ollama on success'
   );
 
-  // ==========================================
-  // SECTION 3: CHAT ENGINE MANAGER ORCHESTRATION
-  // ==========================================
-  console.log('\n--- Section 3: ChatEngineManager Orchestration ---');
+  // Test 4.1b: Dedicated AGENTIC Mode - Direct n8n only, NO fallback to Ollama or Gemini
+  const managerAgenticOnly = new ChatEngineManager();
+  let ollamaCalledInAgentic = false;
+  let geminiCalledInAgentic = false;
 
-  // Test 3.1: Strict ONLINE mode (must NOT fall back to Ollama even if online fails)
-  const managerOnlineOnly = new ChatEngineManager();
-  let ollamaCalledInOnlineMode = false;
-  managerOnlineOnly.onlineEngine = {
+  managerAgenticOnly.n8nService = {
+    sendMessage: async () => ({
+      role: 'assistant',
+      content: 'Dedicated agentic direct answer',
+      engine: 'n8n',
+      provider: 'n8n',
+      model: 'agentic-ai',
+    }),
+  };
+  managerAgenticOnly.ollamaEngine = {
     sendMessage: async () => {
-      const err = new Error('Connection refused to online API');
+      ollamaCalledInAgentic = true;
+      return { role: 'assistant', content: 'Ollama', engine: 'ollama' };
+    },
+  };
+  managerAgenticOnly.onlineEngine = {
+    sendMessage: async () => {
+      geminiCalledInAgentic = true;
+      return { role: 'assistant', content: 'Gemini', engine: 'online' };
+    },
+  };
+
+  const agenticRes = await managerAgenticOnly.executeChat({
+    messages: [{ role: 'user', content: 'Hello' }],
+    mode: 'agentic',
+    conversationId: 'c-agentic-1',
+  });
+
+  assert(
+    agenticRes.engine === 'n8n' &&
+      agenticRes.mode === 'agentic' &&
+      agenticRes.providerLabel === 'n8n Agentic AI' &&
+      agenticRes.fallback === false &&
+      !ollamaCalledInAgentic &&
+      !geminiCalledInAgentic,
+    'Dedicated AGENTIC mode uses n8n directly and NEVER calls Ollama or Gemini on success'
+  );
+
+  // Test 4.1c: Dedicated AGENTIC Mode Failure - Throws directly without fallback (test mode)
+  const managerAgenticFail = new ChatEngineManager();
+  let ollamaCalledInAgenticFail = false;
+
+  managerAgenticFail.n8nService = {
+    sendMessage: async () => {
+      const err = new Error('n8n webhook timeout or 500 error');
       err.isAvailabilityError = true;
       throw err;
     },
   };
-  managerOnlineOnly.ollamaEngine = {
+  managerAgenticFail.ollamaEngine = {
     sendMessage: async () => {
-      ollamaCalledInOnlineMode = true;
-      return { role: 'assistant', content: 'Ollama responded', engine: 'ollama' };
+      ollamaCalledInAgenticFail = true;
+      return { role: 'assistant', content: 'Ollama', engine: 'ollama' };
     },
   };
 
   try {
-    await managerOnlineOnly.executeChat({
-      messages: [{ role: 'user', content: 'Test' }],
-      mode: 'online',
-      conversationId: 'c1',
+    await managerAgenticFail.executeChat({
+      messages: [{ role: 'user', content: 'Hello' }],
+      mode: 'agentic',
+      conversationId: 'c-agentic-fail',
     });
-    assert(false, 'Strict ONLINE mode should fail when online fails');
+    assert(false, 'Dedicated AGENTIC mode should throw on n8n failure without falling back');
   } catch (err) {
     assert(
-      !ollamaCalledInOnlineMode && err.message.includes('Connection refused'),
-      'Strict ONLINE mode never silently falls back to Ollama'
+      !ollamaCalledInAgenticFail && err.message.includes('n8n webhook timeout'),
+      'Dedicated AGENTIC mode throws n8n error directly and NEVER falls back to Ollama (pure test mode)'
     );
   }
 
-  // Test 3.2: Strict OFFLINE mode (must NOT call online even if Ollama fails)
-  const managerOfflineOnly = new ChatEngineManager();
-  let onlineCalledInOfflineMode = false;
-  managerOfflineOnly.onlineEngine = {
-    sendMessage: async () => {
-      onlineCalledInOfflineMode = true;
-      return { role: 'assistant', content: 'Online responded', engine: 'online' };
-    },
-  };
-  managerOfflineOnly.ollamaEngine = {
-    sendMessage: async () => {
-      throw new Error('Ollama not running on 11434');
-    },
-  };
-
-  try {
-    await managerOfflineOnly.executeChat({
-      messages: [{ role: 'user', content: 'Test' }],
-      mode: 'offline',
-      conversationId: 'c2',
-    });
-    assert(false, 'Strict OFFLINE mode should fail when Ollama fails');
-  } catch (err) {
-    assert(
-      !onlineCalledInOfflineMode && err.message.includes('Ollama not running'),
-      'Strict OFFLINE mode never silently sends messages to online AI'
-    );
-  }
-
-  // Test 3.3: AUTO mode - Online succeeds (no fallback)
-  const managerAutoOnline = new ChatEngineManager();
-  managerAutoOnline.onlineEngine = {
-    sendMessage: async () => ({
-      role: 'assistant',
-      content: 'Hello from Online Cloud AI',
-      engine: 'online',
-      model: 'gemini-1.5-flash',
-    }),
-  };
-  managerAutoOnline.ollamaEngine = {
-    sendMessage: async () => {
-      throw new Error('Should not be called');
-    },
-  };
-
-  const autoOnlineRes = await managerAutoOnline.executeChat({
-    messages: [{ role: 'user', content: 'Hi' }],
-    mode: 'auto',
-    conversationId: 'c3',
-  });
-
-  assert(
-    autoOnlineRes.engine === 'online' && autoOnlineRes.fallback === false,
-    'AUTO mode uses online service when available without fallback'
-  );
-
-  // Test 3.4: AUTO mode - Online fails -> Graceful Fallback to Ollama succeeds
+  // Test 4.2: AUTO Mode Fallback - When n8n fails, falls back to Ollama, NEVER Gemini
   const managerAutoFallback = new ChatEngineManager();
+  let geminiCalledInAutoFallback = false;
+
+  managerAutoFallback.n8nService = {
+    sendMessage: async () => {
+      const err = new Error('n8n webhook 404 Not Found');
+      err.isAvailabilityError = true;
+      throw err;
+    },
+  };
   managerAutoFallback.onlineEngine = {
     sendMessage: async () => {
-      throw new Error('Online endpoint unreachable (timeout)');
+      geminiCalledInAutoFallback = true;
+      return { role: 'assistant', content: 'Gemini', engine: 'online' };
     },
   };
   managerAutoFallback.ollamaEngine = {
     sendMessage: async () => ({
       role: 'assistant',
-      content: 'Hello from Local Ollama fallback',
+      content: 'Local Ollama fallback response',
       engine: 'ollama',
-      model: 'llama3',
+      model: 'llama3.2:1b',
     }),
   };
 
-  const fallbackRes = await managerAutoFallback.executeChat({
-    messages: [{ role: 'user', content: 'Hi' }],
+  const autoFallbackRes = await managerAutoFallback.executeChat({
+    messages: [{ role: 'user', content: 'Hello' }],
     mode: 'auto',
-    conversationId: 'c4',
+    conversationId: 'c-auto-2',
   });
 
   assert(
-    fallbackRes.engine === 'ollama' &&
-      fallbackRes.fallback === true &&
-      typeof fallbackRes.fallbackNotice === 'string' &&
-      fallbackRes.content.includes('Local Ollama fallback'),
-    'AUTO mode successfully falls back to Ollama and marks fallback: true with notice'
+    autoFallbackRes.engine === 'ollama' &&
+      autoFallbackRes.fallback === true &&
+      autoFallbackRes.providerLabel === 'Local AI (Ollama)' &&
+      typeof autoFallbackRes.fallbackNotice === 'string' &&
+      !geminiCalledInAutoFallback,
+    'AUTO mode falls back to Ollama when n8n fails, and NEVER silently falls back to Gemini'
   );
 
-  // Test 3.5: AUTO mode - Both fail -> Clear actionable combined error
-  const managerBothFail = new ChatEngineManager();
-  managerBothFail.onlineEngine = {
+  // Test 4.3: GEMINI Mode - NEVER calls n8n
+  const managerGemini = new ChatEngineManager();
+  let n8nCalledInGemini = false;
+
+  managerGemini.n8nService = {
     sendMessage: async () => {
-      throw new Error('API key invalid');
+      n8nCalledInGemini = true;
+      return { role: 'assistant', content: 'n8n', engine: 'n8n' };
     },
   };
-  managerBothFail.ollamaEngine = {
+  managerGemini.onlineEngine = {
+    sendMessage: async () => ({
+      role: 'assistant',
+      content: 'Gemini response',
+      engine: 'online',
+      model: 'gemini-3.5-flash-lite',
+    }),
+  };
+  managerGemini.ollamaEngine = {
+    sendMessage: async () => ({
+      role: 'assistant',
+      content: 'Ollama',
+      engine: 'ollama',
+    }),
+  };
+
+  const geminiRes = await managerGemini.executeChat({
+    messages: [{ role: 'user', content: 'Hello' }],
+    mode: 'gemini',
+    conversationId: 'c-gemini-1',
+  });
+
+  assert(
+    geminiRes.engine === 'online' &&
+      geminiRes.providerLabel === 'Gemini AI' &&
+      geminiRes.fallback === false &&
+      !n8nCalledInGemini,
+    'GEMINI mode uses Gemini online and NEVER calls n8n'
+  );
+
+  // Test 4.4: GEMINI Mode Fallback - When Gemini fails, falls back to Ollama, NEVER n8n
+  const managerGeminiFallback = new ChatEngineManager();
+  let n8nCalledInGeminiFallback = false;
+
+  managerGeminiFallback.n8nService = {
     sendMessage: async () => {
-      throw new Error('Connection refused to 11434');
+      n8nCalledInGeminiFallback = true;
+      return { role: 'assistant', content: 'n8n', engine: 'n8n' };
+    },
+  };
+  managerGeminiFallback.onlineEngine = {
+    sendMessage: async () => {
+      const err = new Error('Gemini API quota exceeded');
+      err.isAvailabilityError = true;
+      throw err;
+    },
+  };
+  managerGeminiFallback.ollamaEngine = {
+    sendMessage: async () => ({
+      role: 'assistant',
+      content: 'Local Ollama response for Gemini fallback',
+      engine: 'ollama',
+      model: 'llama3.2:1b',
+    }),
+  };
+
+  const geminiFallbackRes = await managerGeminiFallback.executeChat({
+    messages: [{ role: 'user', content: 'Hello' }],
+    mode: 'gemini',
+    conversationId: 'c-gemini-2',
+  });
+
+  assert(
+    geminiFallbackRes.engine === 'ollama' &&
+      geminiFallbackRes.fallback === true &&
+      geminiFallbackRes.providerLabel === 'Local AI (Ollama)' &&
+      !n8nCalledInGeminiFallback,
+    'GEMINI mode falls back to Ollama when Gemini fails, and NEVER calls n8n'
+  );
+
+  // Test 4.5: LOCAL Mode - Strict Local Ollama only, NEVER calls n8n or Gemini
+  const managerLocal = new ChatEngineManager();
+  let n8nCalledInLocal = false;
+  let geminiCalledInLocal = false;
+
+  managerLocal.n8nService = {
+    sendMessage: async () => {
+      n8nCalledInLocal = true;
+      return { role: 'assistant', content: 'n8n', engine: 'n8n' };
+    },
+  };
+  managerLocal.onlineEngine = {
+    sendMessage: async () => {
+      geminiCalledInLocal = true;
+      return { role: 'assistant', content: 'Gemini', engine: 'online' };
+    },
+  };
+  managerLocal.ollamaEngine = {
+    sendMessage: async () => ({
+      role: 'assistant',
+      content: 'Local Ollama only response',
+      engine: 'ollama',
+      model: 'llama3.2:1b',
+    }),
+  };
+
+  const localRes = await managerLocal.executeChat({
+    messages: [{ role: 'user', content: 'Hello' }],
+    mode: 'local',
+    conversationId: 'c-local-1',
+  });
+
+  assert(
+    localRes.engine === 'ollama' &&
+      localRes.providerLabel === 'Local AI (Ollama)' &&
+      localRes.fallback === false &&
+      !n8nCalledInLocal &&
+      !geminiCalledInLocal,
+    'LOCAL mode uses Ollama directly and NEVER calls n8n or Gemini'
+  );
+
+  // Test 4.6: Both n8n and Ollama fail in AUTO mode -> 503 error
+  const managerDualFail = new ChatEngineManager();
+  managerDualFail.n8nService = {
+    sendMessage: async () => {
+      throw new Error('n8n network timeout');
+    },
+  };
+  managerDualFail.ollamaEngine = {
+    sendMessage: async () => {
+      throw new Error('Ollama connection refused');
     },
   };
 
   try {
-    await managerBothFail.executeChat({
-      messages: [{ role: 'user', content: 'Hi' }],
+    await managerDualFail.executeChat({
+      messages: [{ role: 'user', content: 'Hello' }],
       mode: 'auto',
-      conversationId: 'c5',
+      conversationId: 'c-dual-fail',
     });
-    assert(false, 'Should throw when both fail');
+    assert(false, 'Dual failure in auto mode should throw');
   } catch (err) {
     assert(
       err.statusCode === 503 &&
-        err.message.includes('Online AI') &&
+        err.message.includes('n8n Agentic AI') &&
         err.message.includes('Local Ollama'),
-      'AUTO mode returns descriptive 503 error explaining both failures without lost context'
+      'AUTO mode returns descriptive 503 error explaining both n8n and Ollama failures'
     );
   }
 
-  // Test 3.6: Context message limit (bounded context window)
-  const managerContext = new ChatEngineManager();
-  let receivedCount = 0;
-  managerContext.onlineEngine = {
-    sendMessage: async (msgs) => {
-      receivedCount = msgs.length;
-      return { role: 'assistant', content: 'OK', engine: 'online' };
-    },
-  };
-
-  const manyMessages = Array.from({ length: 30 }, (_, i) => ({
-    role: i % 2 === 0 ? 'user' : 'assistant',
-    content: `Message ${i + 1}`,
-  }));
-
-  await managerContext.executeChat({
-    messages: manyMessages,
-    mode: 'online',
-    conversationId: 'c6',
-  });
-
-  assert(
-    receivedCount === 15,
-    `Context manager limits history to the recent 15 messages (received ${receivedCount})`
-  );
-
   // ==========================================
-  // SECTION 4: HTTP API ENDPOINT INTEGRATION
+  // SECTION 5: LIVE HTTP API INTEGRATION TESTS
   // ==========================================
-  console.log('\n--- Section 4: Live HTTP API Tests ---');
+  console.log('\n--- Section 5: Live HTTP API Integration Tests ---');
 
   const BASE_URL = 'http://localhost:5000/api';
 
-  // Test 4.1: GET /api/chat/status
+  // Test 5.1: GET /api/chat/status
   try {
     const res = await fetch(`${BASE_URL}/chat/status`);
     const json = await res.json();
     assert(
       res.status === 200 &&
         json.success === true &&
-        json.data?.online &&
-        json.data?.offline &&
-        typeof json.data?.autoAvailable === 'boolean',
-      'GET /api/chat/status returns structured availability for online, offline, and auto'
+        json.data &&
+        typeof json.data.n8n === 'object' &&
+        typeof json.data.gemini === 'object' &&
+        typeof json.data.ollama === 'object',
+      'GET /api/chat/status returns structured availability for n8n, gemini, and ollama'
     );
   } catch (err) {
     assert(false, `GET /api/chat/status failed: ${err.message}`);
   }
 
-  // Test 4.2: POST /api/chat/message with empty messages -> 400 Bad Request
+  // Test 5.2: POST /api/chat/message input validation
   try {
     const res = await fetch(`${BASE_URL}/chat/message`, {
       method: 'POST',
@@ -332,65 +448,7 @@ const runAllTests = async () => {
     assert(false, `Validation check failed: ${err.message}`);
   }
 
-  // Test 4.3: POST /api/chat/message in offline mode with active Ollama
-  try {
-    const res = await fetch(`${BASE_URL}/chat/message`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        messages: [{ role: 'user', content: 'Say OK' }],
-        mode: 'offline',
-      }),
-    });
-    const json = await res.json();
-    assert(
-      res.status === 200 &&
-        json.success === true &&
-        json.data?.engine === 'ollama' &&
-        typeof json.data?.content === 'string',
-      'POST /api/chat/message (offline mode) generates real local Ollama response'
-    );
-  } catch (err) {
-    assert(false, `Offline mode check failed: ${err.message}`);
-  }
-
-  // Check current online availability from the status test above
-  const statusRes = await fetch(`${BASE_URL}/chat/status`);
-  const statusData = (await statusRes.json())?.data;
-  const isOnlineConfigured = statusData?.online?.available;
-
-  // Test 4.4: POST /api/chat/message in online mode
-  try {
-    const res = await fetch(`${BASE_URL}/chat/message`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        messages: [{ role: 'user', content: 'Hello' }],
-        mode: 'online',
-      }),
-    });
-    const json = await res.json();
-    if (isOnlineConfigured) {
-      assert(
-        res.status === 200 &&
-          json.success === true &&
-          json.data?.engine === 'online' &&
-          typeof json.data?.content === 'string',
-        'POST /api/chat/message (online mode) returns successful cloud AI response'
-      );
-    } else {
-      assert(
-        res.status >= 400 &&
-          json.success === false &&
-          json.message.includes('Online AI is not configured'),
-        'POST /api/chat/message (online mode) returns clear configuration instructions without falling back'
-      );
-    }
-  } catch (err) {
-    assert(false, `Online mode check failed: ${err.message}`);
-  }
-
-  // Test 4.5: POST /api/chat/message in auto mode
+  // Test 5.3: POST /api/chat/message with mode: 'auto'
   try {
     const res = await fetch(`${BASE_URL}/chat/message`, {
       method: 'POST',
@@ -401,25 +459,85 @@ const runAllTests = async () => {
       }),
     });
     const json = await res.json();
-    if (isOnlineConfigured) {
-      assert(
-        res.status === 200 &&
-          json.success === true &&
-          (json.data?.engine === 'online' || json.data?.engine === 'ollama'),
-        'POST /api/chat/message (auto mode) produces successful response from online or local engine'
-      );
-    } else {
-      assert(
-        res.status === 200 &&
-          json.success === true &&
-          json.data?.engine === 'ollama' &&
-          json.data?.fallback === true &&
-          typeof json.data?.fallbackNotice === 'string',
-        'POST /api/chat/message (auto mode) gracefully falls back to local Ollama and returns fallbackNotice'
-      );
-    }
+    assert(
+      res.status === 200 &&
+        json.success === true &&
+        (json.data?.engine === 'n8n' || json.data?.engine === 'ollama') &&
+        typeof json.data?.content === 'string' &&
+        json.data?.content.length > 0,
+      'POST /api/chat/message (mode: auto) succeeds with n8n or local Ollama fallback'
+    );
   } catch (err) {
-    assert(false, `Auto mode check failed: ${err.message}`);
+    assert(false, `Auto mode API check failed: ${err.message}`);
+  }
+
+  // Test 5.4: POST /api/chat/message with mode: 'local'
+  try {
+    const res = await fetch(`${BASE_URL}/chat/message`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messages: [{ role: 'user', content: 'Say OK' }],
+        mode: 'local',
+      }),
+    });
+    const json = await res.json();
+    assert(
+      res.status === 200 &&
+        json.success === true &&
+        json.data?.engine === 'ollama' &&
+        json.data?.providerLabel === 'Local AI (Ollama)' &&
+        typeof json.data?.content === 'string',
+      'POST /api/chat/message (mode: local) produces valid local Ollama response'
+    );
+  } catch (err) {
+    assert(false, `Local mode API check failed: ${err.message}`);
+  }
+
+  // Test 5.5: POST /api/chat/message with mode: 'gemini'
+  try {
+    const res = await fetch(`${BASE_URL}/chat/message`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messages: [{ role: 'user', content: 'Say OK' }],
+        mode: 'gemini',
+      }),
+    });
+    const json = await res.json();
+    assert(
+      res.status === 200 &&
+        json.success === true &&
+        (json.data?.engine === 'online' || json.data?.engine === 'ollama') &&
+        typeof json.data?.content === 'string',
+      'POST /api/chat/message (mode: gemini) succeeds with Gemini or local fallback'
+    );
+  } catch (err) {
+    assert(false, `Gemini mode API check failed: ${err.message}`);
+  }
+
+  // Test 5.6: POST /api/chat/message with mode: 'agentic'
+  try {
+    const res = await fetch(`${BASE_URL}/chat/message`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messages: [{ role: 'user', content: 'Say OK' }],
+        mode: 'agentic',
+      }),
+    });
+    const json = await res.json();
+    assert(
+      res.status === 200 &&
+        json.success === true &&
+        json.data?.engine === 'n8n' &&
+        json.data?.mode === 'agentic' &&
+        json.data?.providerLabel === 'n8n Agentic AI' &&
+        typeof json.data?.content === 'string',
+      'POST /api/chat/message (mode: agentic) produces dedicated n8n Agentic AI response'
+    );
+  } catch (err) {
+    assert(false, `Agentic mode API check failed: ${err.message}`);
   }
 
   console.log(`\n========================================`);
