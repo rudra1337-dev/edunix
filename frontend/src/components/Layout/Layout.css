@@ -206,6 +206,20 @@
   flex-direction: column;
 }
 
+.layout--chat {
+  height: 100vh;
+  max-height: 100vh;
+  overflow: hidden;
+}
+
+.layout__main--chat {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
 .layout__footer {
   border-top: 1px solid var(--border);
   padding: 1.5rem;

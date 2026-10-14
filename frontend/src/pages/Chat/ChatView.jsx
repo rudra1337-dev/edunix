@@ -1,8 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useAuth } from '../../context/AuthContext';
 import useConversations from '../../hooks/useConversations';
 import useSpeechToText from '../../hooks/useSpeechToText';
 import useTextToSpeech from '../../hooks/useTextToSpeech';
 import chatEngineManager from '../../services/ai/ChatEngineManager';
+import memoryService from '../../services/memory/memoryService';
+import syncEngine from '../../services/sync/syncEngine';
 
 import Sidebar from '../../components/Chat/Sidebar';
 import ChatHeader from '../../components/Chat/ChatHeader';
@@ -12,6 +15,9 @@ import ChatComposer from '../../components/Chat/ChatComposer';
 import './ChatView.css';
 
 export const ChatView = () => {
+  const { user } = useAuth();
+  const userId = user?.id || 'local-user';
+
   const {
     conversations,
     activeId,
@@ -21,14 +27,14 @@ export const ChatView = () => {
     renameConversation,
     deleteConversation,
     addMessage,
-  } = useConversations();
+  } = useConversations(userId);
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [aiMode, setAiMode] = useState(() => chatEngineManager.getMode());
   const [engineStatus, setEngineStatus] = useState(null);
+  const [syncState, setSyncState] = useState(syncEngine.state);
   const [isGenerating, setIsGenerating] = useState(false);
   const [requestError, setRequestError] = useState(null);
-  const [lastUserPrompt, setLastUserPrompt] = useState('');
 
   // Speech-to-Text hook
   const {
@@ -59,6 +65,15 @@ export const ChatView = () => {
     return () => clearInterval(interval);
   }, [fetchStatus]);
 
+  // Initialize syncEngine and listen for sync state changes
+  useEffect(() => {
+    syncEngine.initialize();
+    const unsubscribe = syncEngine.subscribe((state) => {
+      setSyncState({ ...state });
+    });
+    return () => unsubscribe();
+  }, []);
+
   // Stop speech if conversation changes
   useEffect(() => {
     stopSpeaking();
@@ -75,7 +90,6 @@ export const ChatView = () => {
     if (!text.trim() || isGenerating) return;
 
     setRequestError(null);
-    setLastUserPrompt(text);
 
     const userMessage = {
       id: `usr-${Date.now()}`,
@@ -96,9 +110,26 @@ export const ChatView = () => {
     try {
       const assistantMessage = await chatEngineManager.sendMessage(payloadMessages, {
         conversationId: activeId,
+        userId,
       });
 
       addMessage(assistantMessage);
+
+      // Change-driven memory processing (non-blocking)
+      try {
+        const candidates = memoryService.extractCandidates(text, assistantMessage.content);
+        for (const cand of candidates) {
+          await memoryService.processCandidateMemory(userId, cand);
+        }
+        await memoryService.evaluateConversationSummary(activeId, [
+          ...payloadMessages,
+          assistantMessage,
+        ]);
+        // Trigger background synchronization
+        syncEngine.triggerSync(userId).catch(console.error);
+      } catch (memErr) {
+        console.warn('[ChatView] Memory processing note:', memErr.message);
+      }
     } catch (err) {
       console.error('Chat generation error:', err);
       setRequestError(
@@ -120,7 +151,7 @@ export const ChatView = () => {
     try {
       const assistantMessage = await chatEngineManager.sendMessage(
         existingMessages,
-        { conversationId: activeId }
+        { conversationId: activeId, userId }
       );
       addMessage(assistantMessage);
     } catch (err) {
@@ -163,6 +194,8 @@ export const ChatView = () => {
           onToggleSidebar={() => setSidebarOpen((prev) => !prev)}
           status={engineStatus}
           isGenerating={isGenerating}
+          syncState={syncState}
+          onTriggerSync={() => syncEngine.triggerSync(userId)}
         />
 
         <MessageList

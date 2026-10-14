@@ -7,6 +7,8 @@ export const ChatHeader = ({
   onToggleSidebar,
   status,
   isGenerating,
+  syncState,
+  onTriggerSync,
 }) => {
   const getStatusBadge = () => {
     if (mode === 'online') {
@@ -55,6 +57,35 @@ export const ChatHeader = ({
     }
   };
 
+  const getSyncBadge = () => {
+    if (!syncState) return null;
+    if (syncState.isSyncing) {
+      return (
+        <span className="status-indicator status-indicator--online" title="Synchronizing with server...">
+          🔄 Syncing...
+        </span>
+      );
+    }
+    if (syncState.pendingCount > 0) {
+      return (
+        <button
+          type="button"
+          onClick={onTriggerSync}
+          className="status-indicator status-indicator--fallback"
+          style={{ cursor: 'pointer', border: 'none' }}
+          title="Changes saved in IndexedDB. Click to sync with cloud."
+        >
+          ⚡ {syncState.pendingCount} Offline Queued
+        </button>
+      );
+    }
+    return (
+      <span className="status-indicator status-indicator--online" title="IndexedDB memory active and in sync">
+        💾 Offline Memory Active
+      </span>
+    );
+  };
+
   return (
     <header className="chat-header">
       <div className="chat-header-left">
@@ -73,6 +104,9 @@ export const ChatHeader = ({
       </div>
 
       <div className="chat-header-right">
+        {/* Offline Memory / Sync Status Indicator */}
+        <div className="chat-status-wrapper">{getSyncBadge()}</div>
+
         {/* Real-time Service Status Indicator */}
         <div className="chat-status-wrapper">{getStatusBadge()}</div>
 

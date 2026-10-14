@@ -23,92 +23,84 @@ import Profile from './pages/Profile/Profile';
 function App() {
   return (
     <AuthProvider>
-      <Routes>
-        {/* Fullscreen ChatGPT-style Conversational AI (Both public & authenticated) */}
-        <Route path="/chat" element={<ChatView />} />
-        <Route path="/tutor" element={<ChatView />} />
+      <Layout>
+        <Routes>
+          {/* Public Routes */}
+          <Route path="/" element={<Landing />} />
+          <Route path="/about" element={<About />} />
 
-        {/* Standard Layout Pages */}
-        <Route
-          path="/*"
-          element={
-            <Layout>
-              <Routes>
-                {/* Public Routes */}
-                <Route path="/" element={<Landing />} />
-                <Route path="/about" element={<About />} />
+          {/* Conversational AI (Both public & authenticated) */}
+          <Route path="/chat" element={<ChatView />} />
+          <Route path="/tutor" element={<ChatView />} />
 
-                {/* Public-only Auth Routes */}
-                <Route
-                  path="/sign-in"
-                  element={
-                    <PublicOnlyRoute>
-                      <Login />
-                    </PublicOnlyRoute>
-                  }
-                />
-                <Route
-                  path="/sign-up"
-                  element={
-                    <PublicOnlyRoute>
-                      <Signup />
-                    </PublicOnlyRoute>
-                  }
-                />
+          {/* Public-only Auth Routes */}
+          <Route
+            path="/sign-in"
+            element={
+              <PublicOnlyRoute>
+                <Login />
+              </PublicOnlyRoute>
+            }
+          />
+          <Route
+            path="/sign-up"
+            element={
+              <PublicOnlyRoute>
+                <Signup />
+              </PublicOnlyRoute>
+            }
+          />
 
-                {/* Route Aliases */}
-                <Route path="/login" element={<Navigate to="/sign-in" replace />} />
-                <Route path="/signup" element={<Navigate to="/sign-up" replace />} />
+          {/* Route Aliases */}
+          <Route path="/login" element={<Navigate to="/sign-in" replace />} />
+          <Route path="/signup" element={<Navigate to="/sign-up" replace />} />
 
-                {/* Protected Student Routes */}
-                <Route
-                  path="/dashboard"
-                  element={
-                    <ProtectedRoute>
-                      <Dashboard />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/learning-journey"
-                  element={
-                    <ProtectedRoute>
-                      <LearningJourney />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/progress"
-                  element={
-                    <ProtectedRoute>
-                      <Progress />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/study-plan"
-                  element={
-                    <ProtectedRoute>
-                      <StudyPlan />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/profile"
-                  element={
-                    <ProtectedRoute>
-                      <Profile />
-                    </ProtectedRoute>
-                  }
-                />
+          {/* Protected Student Routes */}
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/learning-journey"
+            element={
+              <ProtectedRoute>
+                <LearningJourney />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/progress"
+            element={
+              <ProtectedRoute>
+                <Progress />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/study-plan"
+            element={
+              <ProtectedRoute>
+                <StudyPlan />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <Profile />
+              </ProtectedRoute>
+            }
+          />
 
-                {/* Fallback to Home */}
-                <Route path="*" element={<Navigate to="/" replace />} />
-              </Routes>
-            </Layout>
-          }
-        />
-      </Routes>
+          {/* Fallback to Home */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Layout>
     </AuthProvider>
   );
 }

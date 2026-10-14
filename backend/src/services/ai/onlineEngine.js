@@ -125,7 +125,14 @@ export class OnlineChatEngine {
     // Convert standard chat messages to Gemini contents format
     const contents = messages.map((msg) => ({
       role: msg.role === 'assistant' ? 'model' : 'user',
-      parts: [{ text: msg.content }],
+      parts: [
+        {
+          text:
+            msg.role === 'system'
+              ? `[System Context & Instructions]:\n${msg.content}`
+              : msg.content,
+        },
+      ],
     }));
 
     const res = await fetch(url, {
