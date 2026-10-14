@@ -268,6 +268,52 @@ export class MemoryService {
       }
     }
 
+    // 5. Explicit ChatGPT-style Memory Directives ("remember that...", "save to memory...", "keep in mind that...")
+    const explicitMemoryMatch = lower.match(
+      /(?:remember\s+(?:that\s+)?|save\s+(?:this\s+)?(?:in|to)\s+memory[:\s]+|keep\s+in\s+mind\s+(?:that\s+)?|note\s+(?:that\s+)?|please\s+remember\s+(?:that\s+)?)([^.!?\n]+)/i
+    );
+    if (explicitMemoryMatch && explicitMemoryMatch[1]) {
+      const fact = explicitMemoryMatch[1].trim();
+      if (fact.length > 2 && fact.length < 150) {
+        const cleanSlug = fact
+          .replace(/^(?:i\s+am|i\s+use|i\s+prefer|i\s+work\s+as|my\s+name\s+is|my\s+)\s*/i, '')
+          .toLowerCase()
+          .replace(/[^a-z0-9\s]/g, ' ')
+          .trim()
+          .split(/\s+/)
+          .slice(0, 3)
+          .join('_');
+        const key = cleanSlug.length >= 2 ? `user_${cleanSlug}` : `user_fact_${Date.now()}`;
+
+        candidates.push({
+          key,
+          value: fact.charAt(0).toUpperCase() + fact.slice(1),
+          type: 'learning_preference',
+          source: 'explicit',
+          confidence: 1.0,
+        });
+      }
+    }
+
+    // 6. Explicit Preferences ("I prefer...")
+    const preferMatch = lower.match(/(?:i\s+prefer|my\s+preference\s+is)\s+([^.!?\n]+)/i);
+    if (
+      preferMatch &&
+      preferMatch[1] &&
+      !candidates.some((c) => c.key === 'preferred_language' || c.key === 'explanation_style')
+    ) {
+      const prefText = preferMatch[1].trim();
+      if (prefText.length > 2 && prefText.length < 80) {
+        candidates.push({
+          key: `preference_${prefText.split(/\s+/).slice(0, 2).join('_').toLowerCase().replace(/[^a-z0-9_]/g, '')}`,
+          value: `Prefers ${prefText}`,
+          type: 'learning_preference',
+          source: 'explicit',
+          confidence: 0.95,
+        });
+      }
+    }
+
     return candidates;
   }
 

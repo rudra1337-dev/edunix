@@ -12,6 +12,77 @@ export class ContextRetrievalService {
   }
 
   /**
+   * Match user query to roadmap topics and extract best-fitting topic
+   */
+  findTopicMatch(topics, queryText) {
+    if (!topics || topics.length === 0) return null;
+
+    if (queryText && typeof queryText === 'string') {
+      const stopWords = new Set([
+        'the', 'and', 'for', 'with', 'what', 'how', 'why', 'can', 'you',
+        'explain', 'teach', 'about', 'tell', 'me', 'please', 'help', 'is', 'are'
+      ]);
+      const queryTokens = queryText
+        .toLowerCase()
+        .replace(/[^a-z0-9\s]/g, ' ')
+        .split(/\s+/)
+        .filter((w) => w.length > 2 && !stopWords.has(w));
+
+      let bestTopic = null;
+      let highestScore = 0;
+
+      for (const topic of topics) {
+        let score = 0;
+        const titleLower = (topic.title || '').toLowerCase();
+        const descLower = (topic.summary || topic.description || topic.explanation || '').toLowerCase();
+
+        // Exact match boost
+        if (queryText.toLowerCase().includes(titleLower) || (titleLower.length > 3 && titleLower.includes(queryText.toLowerCase()))) {
+          score += 10;
+        }
+
+        // Token matches
+        for (const token of queryTokens) {
+          if (titleLower.includes(token)) score += 3;
+          if (descLower.includes(token)) score += 1;
+        }
+
+        if (score > highestScore && score >= 2) {
+          highestScore = score;
+          bestTopic = topic;
+        }
+      }
+
+      if (bestTopic) return bestTopic;
+    }
+
+    // Default fallback: prioritize in_progress -> review -> not_started
+    return (
+      topics.find((t) => t.status === 'in_progress') ||
+      topics.find((t) => t.status === 'review') ||
+      topics.find((t) => t.status === 'not_started') ||
+      topics[0]
+    );
+  }
+
+  /**
+   * Formulate status-specific pedagogical guidance for prompt inclusion
+   */
+  getPedagogicalGuidance(status) {
+    switch (status) {
+      case 'completed':
+        return 'The learner has already completed this topic. Briefly review or reinforce key points, validate their understanding, and avoid re-explaining from scratch unless they explicitly request it.';
+      case 'in_progress':
+        return 'The learner is currently working on this topic. Explain core concepts clearly, provide hands-on Unix/Linux practical examples, and guide them step-by-step toward mastery.';
+      case 'review':
+        return 'The learner needs to review this topic. Provide concise refresher summaries and active recall questions to reinforce retention.';
+      case 'not_started':
+      default:
+        return 'The learner has not started this topic yet. Check prerequisite understanding first, introduce foundational concepts gently, and keep explanations accessible.';
+    }
+  }
+
+  /**
    * Assemble a clean context package for AI prompt construction from local IndexedDB.
    * Internal DB fields and sync metadata are strictly filtered out.
    *
@@ -56,26 +127,65 @@ export class ContextRetrievalService {
         }
       }
 
-      // 3. Active Learning Plan
-      const activePlan = await this.planRepo.getActivePlan(userId);
+      // 3. Active Learning Plan & Roadmap Topic Alignment
+      const allPlans = await this.planRepo.getPlans(userId);
+      const activePlans = (allPlans || []).filter(
+        (p) => !p.isDeleted && !p.isArchived && p.status !== 'archived'
+      );
+      const activePlan = activePlans.find((p) => p.status === 'active') || activePlans[0] || null;
       let planSummary = null;
 
       if (activePlan) {
-        const inProgressItems = (activePlan.items || [])
+        // Collect all topics across sections or flat items with section context
+        const allTopics = [];
+        if (Array.isArray(activePlan.sections) && activePlan.sections.length > 0) {
+          for (const sec of activePlan.sections) {
+            for (const top of sec.topics || []) {
+              allTopics.push({
+                ...top,
+                sectionTitle: sec.title || 'Core Curriculum',
+              });
+            }
+          }
+        } else if (Array.isArray(activePlan.items) && activePlan.items.length > 0) {
+          for (const item of activePlan.items) {
+            allTopics.push({
+              ...item,
+              sectionTitle: 'Core Curriculum',
+            });
+          }
+        }
+
+        // Extract latest user query for topic matching
+        const lastUserMsg = [...(currentMessages || [])].reverse().find((m) => m.role === 'user');
+        const userQuery = lastUserMsg?.content || '';
+
+        const matchedTopic = this.findTopicMatch(allTopics, userQuery);
+
+        const inProgressItems = allTopics
           .filter((i) => i.status === 'in_progress')
           .map((i) => ({ id: i.id, title: i.title }));
 
-        const nextNotStarted = (activePlan.items || [])
+        const nextNotStarted = allTopics
           .filter((i) => i.status === 'not_started')
           .slice(0, 2)
           .map((i) => ({ id: i.id, title: i.title }));
 
         planSummary = {
           title: activePlan.title,
-          goal: activePlan.goal,
-          currentFocus: inProgressItems[0]?.title || nextNotStarted[0]?.title || 'Foundations',
+          goal: activePlan.goal || activePlan.summary || 'Mastery',
+          currentFocus: matchedTopic?.title || inProgressItems[0]?.title || nextNotStarted[0]?.title || 'Foundations',
           itemsInProgress: inProgressItems,
           upcomingTopics: nextNotStarted,
+          matchedTopic: matchedTopic
+            ? {
+                id: matchedTopic.id,
+                title: matchedTopic.title,
+                section: matchedTopic.sectionTitle || 'Core Curriculum',
+                status: matchedTopic.status || 'not_started',
+                guidance: this.getPedagogicalGuidance(matchedTopic.status || 'not_started'),
+              }
+            : null,
         };
       }
 
@@ -136,12 +246,18 @@ export class ContextRetrievalService {
       sections.push(`Learner Memory Context:\n${memLines.join('\n')}`);
     }
 
-    // 3. Active Learning Plan
+    // 3. Active Learning Plan & Roadmap Topic Guidance
     const plan = contextPackage.learning?.activePlan;
     if (plan) {
-      sections.push(
-        `Active Study Plan: "${plan.title}"\n- Current Goal: ${plan.goal}\n- Target Topic: ${plan.currentFocus}`
-      );
+      let planSection = `Active Study Plan: "${plan.title}"\n- Current Goal: ${plan.goal}\n- Target Topic: ${plan.currentFocus}`;
+      if (plan.matchedTopic) {
+        planSection += `\n- Topic Context: "${plan.matchedTopic.title}" (Status: ${plan.matchedTopic.status.toUpperCase()})`;
+        if (plan.matchedTopic.section) {
+          planSection += ` in [${plan.matchedTopic.section}]`;
+        }
+        planSection += `\n- Pedagogical Guidance: ${plan.matchedTopic.guidance}`;
+      }
+      sections.push(planSection);
     }
 
     // 4. Conversation Summary
