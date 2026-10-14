@@ -111,7 +111,7 @@ export const StudyPlan = () => {
                   </span>
                 </div>
                 <p style={{ margin: '0.4rem 0 0 0', fontSize: '0.85rem', color: '#94a3b8' }}>
-                  {item.description}
+                  {item.description || item.summary || item.explanation}
                 </p>
               </div>
             </li>

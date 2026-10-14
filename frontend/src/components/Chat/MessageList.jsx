@@ -1,8 +1,17 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
+import { useAuth } from '../../context/AuthContext';
+import learningPlanService from '../../services/learning/learningPlanService';
+import syncEngine from '../../services/sync/syncEngine';
 import './MessageList.css';
 
 const STARTER_PROMPTS = [
+  {
+    icon: '🗺️',
+    title: 'Generate Learning Roadmap',
+    prompt: 'Create a complete structured learning roadmap for mastering Linux Systems Programming and DevOps.',
+  },
   {
     icon: '🐧',
     title: 'Explain Unix Processes',
@@ -25,6 +34,61 @@ const STARTER_PROMPTS = [
   },
 ];
 
+function AssistantRoadmapCard({ content, userId, onOpenRoadmap, isRoadmapRequested }) {
+  const [saving, setSaving] = useState(false);
+
+  const roadmapData = useMemo(() => {
+    // Only attempt roadmap parsing if explicitly requested or content is explicitly tagged as roadmap
+    if (!content || !isRoadmapRequested) return null;
+    const res = learningPlanService.parseAndValidateAIRoadmap(content);
+    return res && res.success ? res.roadmap : null;
+  }, [content, isRoadmapRequested]);
+
+  if (!roadmapData) return null;
+
+  const handleOpen = async () => {
+    try {
+      setSaving(true);
+      const plan = await learningPlanService.createRoadmap({
+        ...roadmapData,
+        userId,
+        status: 'active',
+        source: 'ai_generated',
+      });
+      await learningPlanService.setActiveRoadmap({ userId, planId: plan.id });
+      syncEngine.triggerSync(userId).catch(console.error);
+      if (onOpenRoadmap) onOpenRoadmap(plan.id);
+    } catch (err) {
+      console.error('Failed to open roadmap from chat:', err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="chat-roadmap-card">
+      <div className="chat-roadmap-header">
+        <span className="chat-roadmap-badge">🗺️ Interactive Learning Roadmap</span>
+        <span className="chat-roadmap-sections">
+          {roadmapData.sections?.length || 1} Modules • {roadmapData.items?.length || 0} Topics
+        </span>
+      </div>
+      <h4 className="chat-roadmap-title">{roadmapData.title}</h4>
+      <p className="chat-roadmap-goal">{roadmapData.summary || roadmapData.goal}</p>
+      <div className="chat-roadmap-actions">
+        <button
+          type="button"
+          className="chat-roadmap-save-btn"
+          onClick={handleOpen}
+          disabled={saving}
+        >
+          {saving ? 'Opening Notion Roadmap...' : '📑 Open in Learning Journey →'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export const MessageList = ({
   messages,
   isGenerating,
@@ -36,8 +100,15 @@ export const MessageList = ({
   speakingMessageId,
   isSpeaking,
 }) => {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const userId = user?.id || 'local-user';
   const bottomRef = useRef(null);
   const [copiedId, setCopiedId] = useState(null);
+
+  const handleOpenRoadmap = (planId) => {
+    navigate(`/learning-journey/${planId}`);
+  };
 
   // Auto-scroll on new message or generating state change
   useEffect(() => {
@@ -82,9 +153,22 @@ export const MessageList = ({
         </div>
       ) : (
         <div className="message-thread">
-          {messages.map((msg) => {
+          {messages.map((msg, msgIndex) => {
             const isUser = msg.role === 'user';
             const isThisSpeaking = isSpeaking && speakingMessageId === msg.id;
+
+            // Determine if the user's prompt or assistant's response was explicitly a roadmap request
+            const prevUserMsg =
+              msgIndex > 0 && messages[msgIndex - 1]?.role === 'user'
+                ? messages[msgIndex - 1].content
+                : '';
+            const isRoadmapRequested =
+              /(?:create|generate|build|make|show|give\s+me)\s+(?:a\s+)?(?:learning\s+)?(?:roadmap|study\s*plan|learning\s*plan|curriculum)/i.test(
+                prevUserMsg
+              ) ||
+              /(?:here\s+is\s+your\s+(?:learning\s+)?roadmap|structured\s+learning\s+roadmap|notion\s+roadmap)/i.test(
+                msg.content
+              );
 
             return (
               <div
@@ -110,12 +194,49 @@ export const MessageList = ({
                     </div>
                   )}
 
+                  {/* ChatGPT-style Memory Updated Pill */}
+                  {msg.memoryUpdated && (
+                    <div className="chatgpt-memory-pill">
+                      <span className="memory-pill-icon">🧠</span>
+                      <span className="memory-pill-label">Memory updated</span>
+                      {msg.updatedMemories?.length > 0 && (
+                        <span
+                          className="memory-pill-detail"
+                          title={msg.updatedMemories.map((m) => `${m.key}: ${m.value}`).join(', ')}
+                        >
+                          &bull; {msg.updatedMemories[0].value}
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  {/* ChatGPT-style Roadmap Saved to Plan Pill */}
+                  {msg.roadmapSaved && msg.savedRoadmap && (
+                    <div className="chatgpt-roadmap-pill">
+                      <span className="roadmap-pill-icon">🗺️</span>
+                      <span className="roadmap-pill-label">Roadmap saved to Study Plan</span>
+                      <Link
+                        to={`/learning-journey/${msg.savedRoadmap.id}`}
+                        className="roadmap-pill-link"
+                        title="Open in Learning Journey"
+                      >
+                        {msg.savedRoadmap.title} &rarr;
+                      </Link>
+                    </div>
+                  )}
+
                   <div className="message-content">
                     {isUser ? (
                       <p className="user-text">{msg.content}</p>
                     ) : (
                       <div className="markdown-body">
                         <ReactMarkdown>{msg.content}</ReactMarkdown>
+                        <AssistantRoadmapCard
+                          content={msg.content}
+                          userId={userId}
+                          onOpenRoadmap={handleOpenRoadmap}
+                          isRoadmapRequested={isRoadmapRequested}
+                        />
                       </div>
                     )}
                   </div>

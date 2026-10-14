@@ -420,3 +420,180 @@
 .chat-error-retry-btn:hover {
   background: #dc2626;
 }
+
+/* Chat Roadmap Preview Card */
+.chat-roadmap-card {
+  margin-top: 1.25rem;
+  background: #141724;
+  border: 1px solid rgba(99, 102, 241, 0.35);
+  border-radius: 12px;
+  padding: 1.25rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.chat-roadmap-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.65rem;
+}
+
+.chat-roadmap-badge {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #818cf8;
+  background: rgba(99, 102, 241, 0.15);
+  padding: 0.2rem 0.55rem;
+  border-radius: 9999px;
+}
+
+.chat-roadmap-sections {
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+
+.chat-roadmap-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #fff;
+  margin: 0 0 0.35rem;
+}
+
+.chat-roadmap-goal {
+  font-size: 0.85rem;
+  color: #cbd5e1;
+  line-height: 1.4;
+  margin: 0 0 1rem;
+}
+
+.chat-roadmap-actions {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.chat-roadmap-save-btn {
+  background: #6366f1;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.chat-roadmap-save-btn:hover {
+  background: #4f46e5;
+}
+
+.chat-roadmap-save-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ChatGPT-Style Memory Updated Pill */
+.chatgpt-memory-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #a5b4fc;
+  background: rgba(99, 102, 241, 0.1);
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  border-radius: 9999px;
+  padding: 0.2rem 0.6rem;
+  margin: 0.25rem 0 0.5rem;
+  width: fit-content;
+  transition: all 0.2s ease;
+  animation: fadeInPill 0.3s ease-out;
+}
+
+.chatgpt-memory-pill:hover {
+  background: rgba(99, 102, 241, 0.18);
+  border-color: rgba(99, 102, 241, 0.4);
+}
+
+.memory-pill-icon {
+  font-size: 0.8rem;
+}
+
+.memory-pill-label {
+  font-weight: 600;
+}
+
+.memory-pill-detail {
+  color: #cbd5e1;
+  font-weight: 400;
+  max-width: 280px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@keyframes fadeInPill {
+  from {
+    opacity: 0;
+    transform: translateY(-2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.chatgpt-roadmap-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #34d399;
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  border-radius: 9999px;
+  padding: 0.2rem 0.65rem;
+  margin: 0.25rem 0 0.5rem;
+  width: fit-content;
+  transition: all 0.2s ease;
+  animation: fadeInPill 0.3s ease-out;
+}
+
+.chatgpt-roadmap-pill:hover {
+  background: rgba(16, 185, 129, 0.18);
+  border-color: rgba(16, 185, 129, 0.45);
+}
+
+.roadmap-pill-icon {
+  font-size: 0.8rem;
+}
+
+.roadmap-pill-label {
+  font-weight: 600;
+}
+
+.roadmap-pill-link {
+  color: #6ee7b7;
+  text-decoration: none;
+  font-weight: 600;
+  max-width: 280px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  transition: color 0.15s ease;
+}
+
+.roadmap-pill-link:hover {
+  color: #a7f3d0;
+  text-decoration: underline;
+}
+
+

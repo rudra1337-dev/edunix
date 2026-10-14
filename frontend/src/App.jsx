@@ -16,6 +16,7 @@ import Signup from './pages/Signup/Signup';
 // Protected Student Pages
 import Dashboard from './pages/Dashboard/Dashboard';
 import LearningJourney from './pages/LearningJourney/LearningJourney';
+import RoadmapDetail from './pages/LearningJourney/RoadmapDetail';
 import Progress from './pages/Progress/Progress';
 import StudyPlan from './pages/StudyPlan/StudyPlan';
 import Profile from './pages/Profile/Profile';
@@ -69,6 +70,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <LearningJourney />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/learning-journey/:planId"
+            element={
+              <ProtectedRoute>
+                <RoadmapDetail />
               </ProtectedRoute>
             }
           />
